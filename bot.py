@@ -1,5 +1,5 @@
 import discord
-import os
+import o
 import requests
 import random
 
