@@ -16,14 +16,14 @@ async def ai_reply(prompt):
     if not GEMINI_KEY:
         return "❌ GEMINI_KEY missing. Add it in Render Environment."
 
-    # Correct model name for free tier
-    url = f"https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key={GEMINI_KEY}"
+    # ✅ Use the updated Gemini 2.0 Flash model
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={GEMINI_KEY}"
     payload = {
         "contents": [{
             "parts": [{"text": prompt}]
         }]
     }
-
+    
     try:
         async with aiohttp.ClientSession() as session:
             async with session.post(url, json=payload, timeout=15) as resp:
@@ -41,7 +41,7 @@ async def ai_reply(prompt):
 
 @bot.event
 async def on_ready():
-    print(f"✅ {bot.user} is online with Gemini 1.5 Flash!")
+    print(f"✅ {bot.user} is online with Gemini 2.0 Flash!")
 
 @bot.event
 async def on_message(message):
