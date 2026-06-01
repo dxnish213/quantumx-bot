@@ -15,14 +15,15 @@ bot = discord.Client(intents=intents)
 async def ai_reply(prompt):
     if not GEMINI_KEY:
         return "❌ GEMINI_KEY missing. Add it in Render Environment."
-    
-    url = f"https://generativelanguage.googleapis.com/v1/models/gemini-pro:generateContent?key={GEMINI_KEY}"
+
+    # Correct model name for free tier
+    url = f"https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key={GEMINI_KEY}"
     payload = {
         "contents": [{
             "parts": [{"text": prompt}]
         }]
     }
-    
+
     try:
         async with aiohttp.ClientSession() as session:
             async with session.post(url, json=payload, timeout=15) as resp:
@@ -32,7 +33,7 @@ async def ai_reply(prompt):
                     return reply[:200] if reply else "🤖 No response."
                 else:
                     text = await resp.text()
-                    return f"⚠️ API error {resp.status}: {text[:100]}"
+                    return f"⚠️ API error {resp.status}: {text[:150]}"
     except asyncio.TimeoutError:
         return "⏰ AI timeout. Try again."
     except Exception as e:
@@ -40,7 +41,7 @@ async def ai_reply(prompt):
 
 @bot.event
 async def on_ready():
-    print(f"✅ {bot.user} online with Gemini AI!")
+    print(f"✅ {bot.user} is online with Gemini 1.5 Flash!")
 
 @bot.event
 async def on_message(message):
