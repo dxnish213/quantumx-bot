@@ -1,6 +1,7 @@
 import discord
 import os
-import requests
+import aiohttp
+import asyncio
 import random
 
 TOKEN = os.environ["TOKEN"]
@@ -10,62 +11,87 @@ intents = discord.Intents.default()
 intents.message_content = True
 bot = discord.Client(intents=intents)
 
+# Fallback responses only if AI fails
 FALLBACK = [
-    "That's cool! Tell me more.",
-    "I see. What else?",
-    "Interesting!",
-    "Hmm, go on.",
-    "I'm listening!",
+    "That's interesting! Tell me more.",
+    "I see. What else is on your mind?",
+    "Hmm, let me think...",
+    "Cool! 😎",
+    "I'm listening.",
 ]
 
-def get_ai_reply(msg):
+async def get_ai_reply(msg):
+    """Call Hugging Face free conversational AI."""
     if not HF_TOKEN or HF_TOKEN == "":
         return random.choice(FALLBACK)
-    API = "https://api-inference.huggingface.co/models/microsoft/DialoGPT-medium"
+    
+    # Use a small, fast model
+    API_URL = "https://api-inference.huggingface.co/models/microsoft/DialoGPT-small"
     headers = {"Authorization": f"Bearer {HF_TOKEN}"}
-    payload = {"inputs": msg, "parameters": {"max_length": 100, "temperature": 0.7}}
+    payload = {
+        "inputs": msg,
+        "parameters": {
+            "max_length": 80,
+            "temperature": 0.9,
+            "top_p": 0.9,
+            "do_sample": True
+        }
+    }
+    
     try:
-        r = requests.post(API, headers=headers, json=payload, timeout=10)
-        if r.status_code == 200:
-            data = r.json()
-            if isinstance(data, list) and data:
-                reply = data[0].get("generated_text", "")
-                if reply.startswith(msg):
-                    reply = reply[len(msg):].strip()
-                if reply:
-                    return reply[:200]
-        return random.choice(FALLBACK)
-    except:
+        async with aiohttp.ClientSession() as session:
+            async with session.post(API_URL, headers=headers, json=payload, timeout=aiohttp.ClientTimeout(total=15)) as resp:
+                if resp.status == 200:
+                    data = await resp.json()
+                    if isinstance(data, list) and len(data) > 0:
+                        reply = data[0].get("generated_text", "")
+                        # Remove the original prompt if repeated
+                        if reply.startswith(msg):
+                            reply = reply[len(msg):].strip()
+                        if reply:
+                            return reply[:200]
+                # If API fails, fallback
+                return random.choice(FALLBACK)
+    except Exception as e:
+        print(f"AI error: {e}")
         return random.choice(FALLBACK)
 
 @bot.event
 async def on_ready():
-    print(f"✅ {bot.user} is online with AI brain!")
+    print(f"✅ {bot.user} is online with REAL AI replies!")
 
 @bot.event
 async def on_message(message):
     if message.author == bot.user:
         return
+    
+    # Respond when bot is @mentioned
     if bot.user in message.mentions:
+        # Remove the mention from the prompt
         prompt = message.content.replace(f"<@{bot.user.id}>", "").strip()
         if not prompt:
             prompt = "hello"
+        
+        # Show typing indicator while AI thinks
         async with message.channel.typing():
-            reply = get_ai_reply(prompt)
+            reply = await get_ai_reply(prompt)
+        
         await message.channel.send(f"{message.author.mention} {reply}")
+
+# === Flask keep-alive server (must be BEFORE bot.run) ===
 from flask import Flask
 from threading import Thread
-import os
 
 app = Flask('')
 
 @app.route('/')
 def home():
-    return "QuantumX Bot is running."
+    return "QuantumX Bot is alive with AI!"
 
-def run():
+def run_web():
     app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 8080)))
 
-t = Thread(target=run)
-t.start()
+Thread(target=run_web).start()
+
+# === Start Discord bot ===
 bot.run(TOKEN)
