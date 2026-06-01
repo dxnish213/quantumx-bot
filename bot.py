@@ -53,8 +53,6 @@ async def on_message(message):
         async with message.channel.typing():
             reply = get_ai_reply(prompt)
         await message.channel.send(f"{message.author.mention} {reply}")
-
-bot.run(TOKEN)
 from flask import Flask
 from threading import Thread
 import os
@@ -70,3 +68,4 @@ def run():
 
 t = Thread(target=run)
 t.start()
+bot.run(TOKEN)
