@@ -15,22 +15,25 @@ bot = discord.Client(intents=intents)
 async def ai_reply(prompt):
     if not ONE_MIN_AI_KEY:
         return "❌ ONE_MIN_AI_KEY missing. Add it in Render Environment."
-    
-    url = "https://api.1min.ai/text"
+
+    # ✅ Correct endpoint
+    url = "https://api.1min.ai/v1/chat/completions"
     headers = {
         "Authorization": f"Bearer {ONE_MIN_AI_KEY}",
         "Content-Type": "application/json"
     }
     payload = {
         "model": "gpt-4o-mini",
-        "messages": [{"role": "user", "content": prompt}]
+        "messages": [{"role": "user", "content": prompt}],
+        "max_tokens": 150
     }
-    
+
     try:
         async with aiohttp.ClientSession() as session:
             async with session.post(url, headers=headers, json=payload, timeout=15) as resp:
                 if resp.status == 200:
                     data = await resp.json()
+                    # Extract the reply text from the response
                     reply = data.get('choices', [{}])[0].get('message', {}).get('content', '')
                     return reply[:200] if reply else "🤖 No response from AI."
                 else:
