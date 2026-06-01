@@ -2,7 +2,6 @@ import discord
 import os
 import aiohttp
 import asyncio
-import random
 from flask import Flask
 from threading import Thread
 
@@ -13,21 +12,15 @@ intents = discord.Intents.default()
 intents.message_content = True
 bot = discord.Client(intents=intents)
 
-# Better fallback with variety
-FALLBACK = [
-    "I'm not sure, tell me more!",
-    "Interesting! Go on.",
-    "Hmm, let me think...",
-    "Cool! 😎",
-    "I'm listening.",
-]
-
-async def ai_reply(prompt):
+async def test_ai(prompt):
+    """Test AI and return reply or error message."""
     if not HF_TOKEN:
-        return random.choice(FALLBACK)
+        return "❌ No HF_TOKEN found. Add it in Render Environment."
+    
     url = "https://api-inference.huggingface.co/models/microsoft/DialoGPT-small"
     headers = {"Authorization": f"Bearer {HF_TOKEN}"}
     payload = {"inputs": prompt, "parameters": {"max_length": 60, "temperature": 0.9}}
+    
     try:
         async with aiohttp.ClientSession() as session:
             async with session.post(url, headers=headers, json=payload, timeout=10) as resp:
@@ -36,14 +29,18 @@ async def ai_reply(prompt):
                     reply = data[0].get("generated_text", "")
                     if reply.startswith(prompt):
                         reply = reply[len(prompt):].strip()
-                    return reply[:150] if reply else random.choice(FALLBACK)
-                return random.choice(FALLBACK)
-    except:
-        return random.choice(FALLBACK)
+                    return reply if reply else "🤖 (no response)"
+                else:
+                    text = await resp.text()
+                    return f"⚠️ API error {resp.status}: {text[:100]}"
+    except asyncio.TimeoutError:
+        return "⏰ AI timeout (free tier slow). Try again."
+    except Exception as e:
+        return f"💥 Exception: {type(e).__name__}"
 
 @bot.event
 async def on_ready():
-    print(f"✅ {bot.user} AI bot ready")
+    print(f"✅ Bot ready: {bot.user}")
 
 @bot.event
 async def on_message(message):
@@ -54,15 +51,13 @@ async def on_message(message):
         if not prompt:
             prompt = "hello"
         async with message.channel.typing():
-            reply = await ai_reply(prompt)
+            reply = await test_ai(prompt)
         await message.channel.send(f"{message.author.mention} {reply}")
 
-# Keep-alive web server
+# Keep-alive
 app = Flask('')
 @app.route('/')
-def home(): return "QuantumX AI bot running"
-@app.route('/health')
-def health(): return "OK", 200
+def home(): return "OK"
 def run(): app.run(host='0.0.0.0', port=10000)
 Thread(target=run).start()
 
